@@ -14,6 +14,7 @@ from keras.preprocessing.image import img_to_array
 tf.compat.v1.ConfigProto().gpu_options.allow_growth = True
 tf.config.run_functions_eagerly(False)
 
+
 class IHappyPlant:
     LABELS_PATH = r'D:\PyCharm Professional\Projects\HappyPlant\data\models\labels\happy_plant_labels.pickle'
     MODELS_DIRECTORY = r'D:\PyCharm Professional\Projects\HappyPlant\data\models\MobileNetV2'
@@ -57,4 +58,4 @@ class IHappyPlant:
     def predict_disease(self, x_test: str) -> str:
         image_array = self.transform_image(x_test)
         y_pred = np.argmax(self.model.predict(np.expand_dims(image_array, axis=0)), axis=-1)[0]
-        return self.encoded_labels[y_pred]
+        return self.encoded_labels[y_pred].replace('_', ' ')

@@ -63,37 +63,6 @@ def get_output_path():
     return os.path.join(output_folder, file_name)
 
 
-def show_description(df: pd.DataFrame, matches: pd.Series, keywords: list) -> NoReturn:
-    if not matches.empty:
-        diseases = matches[matches == matches.max()].index
-        found = diseases.shape[0]
-        print(f"\n[🌷] {found} suitable match{'es' if found > 1 else ''} found based on provided keywords:")
-        print(f'{format_text(keywords, indent=1)}')
-        for i, disease in enumerate(diseases, start=1):
-            row = df.loc[df['Disease'] == disease].reset_index(inplace=False)
-            print(
-                f'\n\t[{i} 💮] '
-                + f'Potential disease, accompanying symptoms, possible reasons and appropriate treatment hints:\n'
-                + f'\n\t\t[🦠] The plant disease indicated by the provided keywords is most likely:\n'
-                + f'\t\t{format_text(disease, indent=2)}.\n'
-                + '\n\t\t[🌡️] The symptoms and damage to the plant may be as following:\n'
-                + f"\t\t{format_text(row.loc[0, 'Symptoms'], indent=2)}\n"
-                + '\n\t\t[🔬] Possible cause of appearance of these diseases or pests is favorably:\n'
-                + f"\t\t{format_text(row.loc[0, 'Reason'], indent=2)}\n"
-                + '\n\t\t[🌸] The appropriate treatment involves:\n'
-                + f"\t\t{format_text(row.loc[0, 'Treatment'], indent=2)}"
-            )
-        if re.match('y', input("\n[🦕] Would you like to save your session? y/[n]: "), re.IGNORECASE):
-            queries = df[df['Disease'].isin(diseases)]
-            output_path = get_output_path()
-            save_excel(queries, output_path)
-    elif keywords:
-        print(
-            "[💧] Unfortunately we haven't found any suitable matches for provided keywords:"
-            + format_text(keywords, indent=1)
-        )
-
-
 def get_matches(df: pd.DataFrame, keywords: list) -> pd.Series:
     matches = {}
     for keyword in keywords:
@@ -124,8 +93,60 @@ def get_database(load_from_database: bool = True, save: bool = False) -> pd.Data
     return database
 
 
+def disease_description(query: str, is_predicted: bool = False) -> NoReturn:
+    keywords = extract_keywords(query)
+    if len(keywords) == 0:
+        print("[🌺] You haven't provided any valid keywords. We hope your plant is right as rain!")
+        return
+
+    data = get_database(load_from_database=True)
+    matches = get_matches(data, keywords)
+    if not matches.empty:
+        if is_predicted:
+            diseases = [matches.idxmax(), ]
+        else:
+            diseases = matches[matches == matches.max()].index
+            found = diseases.shape[0]
+            print(f"[🌷] {found} suitable match{'es' if found > 1 else ''} found based on extracted keywords:")
+            print(f'{format_text(keywords, indent=1)}')
+        for i, disease in enumerate(diseases, start=1):
+            row = data.loc[data['Disease'] == disease].reset_index(inplace=False)
+            print(
+                f"\n\t[{'Prediction' if is_predicted else i} 💮] "
+                + f'Potential disease, accompanying symptoms, possible reasons and appropriate treatment hints:\n'
+                + f'\n\t\t[🦠] The plant disease indicated by the provided keywords is most likely:\n'
+                + f'\t\t{format_text(disease, indent=2)}.\n'
+                + '\n\t\t[🌡️] The symptoms and damage to the plant may be as following:\n'
+                + f"\t\t{format_text(row.loc[0, 'Symptoms'], indent=2)}\n"
+                + '\n\t\t[🔬] Possible cause of appearance of these diseases or pests is favorably:\n'
+                + f"\t\t{format_text(row.loc[0, 'Reason'], indent=2)}\n"
+                + '\n\t\t[🌸] The appropriate treatment involves:\n'
+                + f"\t\t{format_text(row.loc[0, 'Treatment'], indent=2)}"
+            )
+
+        if re.match('y', input("\n[🦕] Would you like to save your session? y/[n]: "), re.IGNORECASE):
+            queries = data[data['Disease'].isin(diseases)]
+            output_path = get_output_path()
+            save_excel(queries, output_path)
+
+        return
+
+    if is_predicted:
+        print(f"[💧] Unfortunately we haven't found any information concerning {query} in our database.")
+
+    else:
+        print(
+            f"[💧] Unfortunately we haven't found any suitable matches for provided keywords:"
+            f"{format_text(keywords, indent=1)}"
+        )
+
+    print(
+        f"\n[📩] We highly apologize for any inconveniences and shortcomings of available database."
+        f"[📊] Furthermore we kindly encourage our users to report encountered errors to HappyPlant support!"
+    )
+
+
 def plant_disease_recognition() -> NoReturn:
-    query = ''
     features = ['Search Engine', 'Image Net']
     output_message = "[🥑] Thank you for trusting us - HappyPlant is keeping track on your plant's health conditions 💚"
     print(f"\n[🧠] iHappyPlant - intelligent plant disease recognition & treatment:")
@@ -135,6 +156,7 @@ def plant_disease_recognition() -> NoReturn:
         print(f'[🚀] Launching {features[choice - 1]}...\n')
         if choice == 1:
             query = input('[🌱] Please provide comma-separated keywords describing the visual defects of your plant: ')
+            disease_description(query)
         elif choice == 2:
             i_happy_plant = IHappyPlant()
             user_input = input('[🌱] Please provide path to the image presenting pathological leaf: ')
@@ -146,20 +168,12 @@ def plant_disease_recognition() -> NoReturn:
                 print(f"\n\t[🐻] Unfortunately, iHappyPlant could not identify any plant on the uploaded image.")
                 return
             else:
-                query = y_pred.replace('_', ' ')
+                disease_description(y_pred, is_predicted=True)
     except (ValueError, IndexError, UnidentifiedImageError, OSError) as err:
         print(
-            f'[❌] Wrong input provided: {err}\n'
+            f'\n[❌] Wrong input provided: {err}\n'
             f'[🍁] We hope your plant is safe and sound!'
         )
-    else:
-        keywords = extract_keywords(query)
-        if keywords:
-            data = get_database(load_from_database=True)
-            matches = get_matches(data, keywords)
-            show_description(data, matches, keywords)
-        else:
-            print("[🌺] You haven't provided any valid keywords. We hope your plant is right as rain!")
     finally:
         print(f"\n\n{output_message}")
 
