@@ -68,7 +68,7 @@ def get_matches(df: pd.DataFrame, keywords: list) -> pd.Series:
     for keyword in keywords:
         for idx in df.index:
             disease = df.loc[idx, 'Disease']
-            if re.match(f'{keyword}$', disease, re.IGNORECASE):
+            if re.search(f'{keyword}', disease, re.IGNORECASE):
                 return pd.Series({disease: 1}, dtype=int)
             for col in df.columns:
                 found = len(re.findall(keyword, df.loc[idx, col], re.IGNORECASE))
